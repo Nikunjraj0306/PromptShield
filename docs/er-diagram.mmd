@@ -1,0 +1,85 @@
+
+erDiagram
+    USERS ||--o{ AUDIT_LOGS : performs
+    APPLICATIONS ||--o{ ENDPOINTS : exposes
+    APPLICATIONS ||--o{ SECURITY_EVENTS : generates
+    ENDPOINTS o|--o{ SECURITY_EVENTS : relates_to
+    SECURITY_POLICIES o|--o{ SECURITY_EVENTS : decides
+    SECURITY_EVENTS ||--o{ THREAT_FINDINGS : contains
+    DETECTION_RULES ||--o{ THREAT_FINDINGS : produces
+
+    USERS {
+        int user_id PK
+        string email UK
+        string password_hash
+        string role
+        boolean is_active
+        datetime created_at
+    }
+
+    APPLICATIONS {
+        int application_id PK
+        string name
+        string description
+        boolean is_active
+        datetime created_at
+    }
+
+    ENDPOINTS {
+        int endpoint_id PK
+        int application_id FK
+        string path
+        string http_method
+        boolean is_active
+    }
+
+    DETECTION_RULES {
+        int rule_id PK
+        string name
+        string category
+        string severity
+        boolean is_critical
+        boolean is_enabled
+        int weight
+    }
+
+    SECURITY_POLICIES {
+        int policy_id PK
+        string name
+        int threshold
+        string action
+        int priority
+        boolean is_enabled
+    }
+
+    SECURITY_EVENTS {
+        int event_id PK
+        int application_id FK
+        int endpoint_id FK
+        int policy_id FK
+        datetime request_time
+        datetime created_at
+        int risk_score
+        string decision
+        string reason_code
+        string correlation_id
+    }
+
+    THREAT_FINDINGS {
+        int finding_id PK
+        int event_id FK
+        int rule_id FK
+        string severity
+        float confidence
+        string evidence_summary
+    }
+
+    AUDIT_LOGS {
+        int audit_id PK
+        int user_id FK
+        string action
+        string resource_type
+        string resource_id
+        datetime created_at
+        string details_summary
+    }
