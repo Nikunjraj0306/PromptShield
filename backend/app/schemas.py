@@ -1,10 +1,14 @@
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class InspectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     application_id: int = Field(gt=0)
-    endpoint_id: int | None = Field(default=None, gt=0)
+    endpoint_id: int = Field(gt=0)
     text: str = Field(min_length=1, max_length=10_000)
+
 
 
 class FindingResponse(BaseModel):

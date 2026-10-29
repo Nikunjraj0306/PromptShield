@@ -1,13 +1,17 @@
-from fastapi import FastAPI
+
+import logging
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.analytics_service import get_security_summary
 from app.config import settings
-
 from app.database import check_database_connection
-
-from fastapi import HTTPException, status
-from app.schemas import InspectRequest, InspectResponse
+from app.events_service import get_recent_events
 from app.inspection_service import inspect_and_store
+from app.schemas import InspectRequest, InspectResponse
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -55,10 +59,11 @@ def readiness_check():
     except HTTPException:
         raise
     except Exception:
+        logger.exception("Database readiness check failed")
         raise HTTPException(
             status_code=503,
             detail="Database is unavailable",
-        )
+        ) from None
 
 
 @app.post(
@@ -88,10 +93,46 @@ def inspect_endpoint(request: InspectRequest):
             detail="Invalid inspection request",
         ) from exc
     except Exception:
+        logger.exception("Inspection request failed")
         raise HTTPException(
             status_code=503,
             detail="Inspection could not be completed",
+        ) from None
+
+
+@app.get("/api/v1/analytics/summary", tags=["Analytics"])
+def analytics_summary():
+    try:
+        return get_security_summary()
+    except Exception:
+        logger.exception("Analytics summary query failed")
+        raise HTTPException(
+            status_code=503,
+            detail="Analytics service temporarily unavailable",
+        ) from None
+
+
+@app.get("/api/v1/events", tags=["Security Events"])
+def list_security_events(limit: int = 50):
+    if not 1 <= limit <= 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit must be between 1 and 100",
         )
+
+    try:
+        events = get_recent_events(limit)
+        return {
+            "count": len(events),
+            "events": events,
+        }
+    except Exception:
+        logger.exception("Failed to retrieve security events")
+        raise HTTPException(
+            status_code=503,
+            detail="Security events are temporarily unavailable",
+        ) from None
+
 
 @app.get("/", tags=["Root"])
 def root():
