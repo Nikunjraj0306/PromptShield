@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
 
 
 class InspectRequest(BaseModel):
@@ -8,7 +8,6 @@ class InspectRequest(BaseModel):
     application_id: int = Field(gt=0)
     endpoint_id: int = Field(gt=0)
     text: str = Field(min_length=1, max_length=10_000)
-
 
 
 class FindingResponse(BaseModel):
@@ -26,3 +25,22 @@ class InspectResponse(BaseModel):
     decision: str
     reason_code: str
     findings: list[FindingResponse]
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
+class CurrentUserResponse(BaseModel):
+    user_id: int
+    email: str
+    role: str

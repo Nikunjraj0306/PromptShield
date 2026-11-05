@@ -1,4 +1,9 @@
+
 fastapi
 uvicorn[standard]
 pydantic-settings
 pyodbc
+PyJWT[crypto]
+pwdlib[argon2]
+python-multipart
+email-validator

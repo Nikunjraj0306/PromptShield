@@ -1,15 +1,24 @@
 
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import OAuth2PasswordRequestForm
+
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.analytics_service import get_security_summary
+from app.auth_dependencies import require_roles
+from app.auth_service import authenticate_user
 from app.config import settings
 from app.database import check_database_connection
 from app.events_service import get_recent_events
 from app.inspection_service import inspect_and_store
-from app.schemas import InspectRequest, InspectResponse
+from app.schemas import (
+    InspectRequest,
+    InspectResponse,
+    LoginRequest,
+    TokenResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +42,10 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Correlation-ID"],
 )
 
+
+# --------------------------------------------------
+# HEALTH CHECKS
+# --------------------------------------------------
 
 @app.get("/health", tags=["Health"])
 def health_check():
@@ -58,26 +71,78 @@ def readiness_check():
 
     except HTTPException:
         raise
+
     except Exception:
         logger.exception("Database readiness check failed")
+
         raise HTTPException(
             status_code=503,
             detail="Database is unavailable",
         ) from None
 
 
+# --------------------------------------------------
+# AUTHENTICATION
+# --------------------------------------------------
+
+
+@app.post(
+    "/api/v1/auth/login",
+    response_model=TokenResponse,
+    tags=["Authentication"],
+)
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+):
+    try:
+        result = authenticate_user(
+            email=form_data.username,
+            password=form_data.password,
+        )
+
+        if result is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return result
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        logger.exception("Login request failed")
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service temporarily unavailable",
+        ) from None
+
+
+# --------------------------------------------------
+# SECURITY INSPECTION
+# Admin and Analyst access only
+# --------------------------------------------------
+
 @app.post(
     "/api/v1/inspect",
     response_model=InspectResponse,
     tags=["Inspection"],
 )
-def inspect_endpoint(request: InspectRequest):
+def inspect_endpoint(
+    request: InspectRequest,
+    current_user: dict = Depends(
+        require_roles("Admin", "Analyst")
+    ),
+):
     try:
         return inspect_and_store(
             application_id=request.application_id,
             endpoint_id=request.endpoint_id,
             text=request.text,
         )
+
     except ValueError as exc:
         if str(exc) in {
             "APPLICATION_NOT_FOUND_OR_INACTIVE",
@@ -92,28 +157,57 @@ def inspect_endpoint(request: InspectRequest):
             status_code=400,
             detail="Invalid inspection request",
         ) from exc
+
     except Exception:
         logger.exception("Inspection request failed")
+
         raise HTTPException(
             status_code=503,
             detail="Inspection could not be completed",
         ) from None
 
 
-@app.get("/api/v1/analytics/summary", tags=["Analytics"])
-def analytics_summary():
+# --------------------------------------------------
+# ANALYTICS
+# Admin, Analyst and Viewer access
+# --------------------------------------------------
+
+@app.get(
+    "/api/v1/analytics/summary",
+    tags=["Analytics"],
+)
+def analytics_summary(
+    current_user: dict = Depends(
+        require_roles("Admin", "Analyst", "Viewer")
+    ),
+):
     try:
         return get_security_summary()
+
     except Exception:
         logger.exception("Analytics summary query failed")
+
         raise HTTPException(
             status_code=503,
             detail="Analytics service temporarily unavailable",
         ) from None
 
 
-@app.get("/api/v1/events", tags=["Security Events"])
-def list_security_events(limit: int = 50):
+# --------------------------------------------------
+# SECURITY EVENTS
+# Admin, Analyst and Viewer access
+# --------------------------------------------------
+
+@app.get(
+    "/api/v1/events",
+    tags=["Security Events"],
+)
+def list_security_events(
+    limit: int = 50,
+    current_user: dict = Depends(
+        require_roles("Admin", "Analyst", "Viewer")
+    ),
+):
     if not 1 <= limit <= 100:
         raise HTTPException(
             status_code=400,
@@ -122,17 +216,24 @@ def list_security_events(limit: int = 50):
 
     try:
         events = get_recent_events(limit)
+
         return {
             "count": len(events),
             "events": events,
         }
+
     except Exception:
         logger.exception("Failed to retrieve security events")
+
         raise HTTPException(
             status_code=503,
             detail="Security events are temporarily unavailable",
         ) from None
 
+
+# --------------------------------------------------
+# ROOT
+# --------------------------------------------------
 
 @app.get("/", tags=["Root"])
 def root():

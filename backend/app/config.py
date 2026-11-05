@@ -1,3 +1,4 @@
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +13,11 @@ class Settings(BaseSettings):
     azure_sql_username: str = ""
     azure_sql_password: str = ""
     azure_sql_driver: str = "ODBC Driver 18 for SQL Server"
+
+    # Authentication settings
+    jwt_secret_key: str = ""
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",
