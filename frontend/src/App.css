@@ -84,15 +84,31 @@ nav {
 }
 
 .nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  text-align: left;
   color: #8f9bb1;
   padding: 12px 13px;
   border-radius: 9px;
   font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.nav-item:hover {
+  color: #c9d6ff;
+  background: #192640;
+  transform: none;
 }
 
 .nav-item.active {
   color: #c9d6ff;
   background: #253354;
+  border-color: transparent;
   box-shadow: inset 3px 0 #839bff;
 }
 

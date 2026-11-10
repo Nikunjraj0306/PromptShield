@@ -1,3 +1,4 @@
+
 from app.detector import (
     calculate_risk_score,
     inspect_text,
@@ -21,6 +22,27 @@ def test_critical_command_pattern_blocks():
     score = calculate_risk_score(findings)
     decision, reason = make_decision(findings, score)
 
+    assert decision == "Block"
+    assert reason == "CRITICAL_FINDING"
+
+
+def test_rm_rf_command_injection_is_detected_and_blocks():
+    findings = inspect_text("rm -rf /")
+
+    command_findings = [
+        f for f in findings
+        if f.category == "COMMAND_INJECTION"
+    ]
+
+    assert len(command_findings) == 1
+    assert command_findings[0].severity == "Critical"
+    assert command_findings[0].weight == 60
+    assert command_findings[0].is_critical is True
+
+    score = calculate_risk_score(findings)
+    decision, reason = make_decision(findings, score)
+
+    assert score == 60
     assert decision == "Block"
     assert reason == "CRITICAL_FINDING"
 

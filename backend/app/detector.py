@@ -1,3 +1,4 @@
+
 import re
 from dataclasses import dataclass
 
@@ -44,7 +45,10 @@ RULES = [
         "severity": "High",
         "weight": 35,
         "is_critical": False,
-        "pattern": re.compile(r"\.\.[/\\]|%2e%2e", re.IGNORECASE),
+        "pattern": re.compile(
+            r"\.\.[/\\]|%2e%2e",
+            re.IGNORECASE,
+        ),
     },
     {
         "name": "Command Injection Pattern",
@@ -52,7 +56,16 @@ RULES = [
         "severity": "Critical",
         "weight": 60,
         "is_critical": True,
-        "pattern": re.compile(r";\s*(whoami|id|cat|type|dir)\b", re.IGNORECASE),
+        "pattern": re.compile(
+            r"(?:^|;|&&?|\|\|?|\n|`|\$\()\s*"
+            r"(?:sudo\s+)?"
+            r"(?:whoami|id|cat|type|dir|pwd|uname|curl|wget|"
+            r"bash|sh|powershell|cmd|nc|netcat|python|python3|"
+            r"perl|ruby|chmod|chown)\b"
+            r"|(?:^|\s)rm\s+-(?:[a-z]*r[a-z]*f[a-z]*|"
+            r"[a-z]*f[a-z]*r[a-z]*)\s+",
+            re.IGNORECASE,
+        ),
     },
     {
         "name": "Prompt Injection Pattern",
@@ -74,7 +87,7 @@ RULES = [
         "is_critical": False,
         "pattern": re.compile(
             r"\b\d{3}-\d{2}-\d{4}\b|"
-            r"\b(?:\d[ -]*?){13,19}\b"
+            r"\b(?:\d[ -]?){13,19}\b"
         ),
     },
 ]
