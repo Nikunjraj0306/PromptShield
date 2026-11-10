@@ -1,6 +1,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
+import Login from "./Login";
+import { authFetch, getCurrentUser, getToken, logout } from "./api";
+import type { CurrentUser } from "./api";
 
 type Finding = {
   rule_name: string;
@@ -26,9 +29,15 @@ type SecuritySummary = {
   average_risk: number;
 };
 
-const API_URL = "http://127.0.0.1:8000";
 
-function App() {
+function Dashboard({
+  onLogout,
+  user,
+}: {
+  onLogout: () => void;
+  user: CurrentUser;
+}) {
+  const canInspect = user.role === "Admin" || user.role === "Analyst";
   const [applicationId, setApplicationId] = useState("1");
   const [endpointId, setEndpointId] = useState("1");
   const [text, setText] = useState("Hello, this is a normal request.");
@@ -44,9 +53,12 @@ function App() {
     setSummaryError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/analytics/summary`,
-      );
+            const response = await authFetch("/api/v1/analytics/summary");
+
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`Analytics request failed: ${response.status}`);
@@ -61,7 +73,7 @@ function App() {
     } finally {
       setAnalyticsLoading(false);
     }
-  }, []);
+  }, [onLogout]);
 
   useEffect(() => {
     void loadAnalytics();
@@ -74,7 +86,7 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/inspect`, {
+        const response = await authFetch("/api/v1/inspect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -83,7 +95,10 @@ function App() {
           text,
         }),
       });
-
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
       const data = await response.json();
 
       if (!response.ok) {
@@ -125,7 +140,10 @@ function App() {
 
         <div className="sidebar-bottom">
           <span className="status-dot" />
-          Local development
+          {user.email}
+          <br />
+          Role: {user.role}
+          <br />
           <small>FastAPI · Azure SQL</small>
         </div>
       </aside>
@@ -143,6 +161,9 @@ function App() {
           <div className="environment-badge">
             <span className="status-dot" /> API environment
           </div>
+                    <button type="button" className="logout-button" onClick={onLogout}>
+            Sign out
+          </button>
         </header>
 
         <section className="notice">
@@ -214,6 +235,20 @@ function App() {
           </div>
         )}
 
+                {!canInspect && (
+          <section className="notice">
+            <span className="notice-icon">i</span>
+            <div>
+              <strong>Read-only access</strong>
+              <p>
+                Your role ({user.role}) can view analytics but cannot run
+                request inspections.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {canInspect && (
         <section className="workspace-grid">
           <article className="panel inspector-panel">
             <div className="panel-heading">
@@ -379,6 +414,7 @@ function App() {
             )}
           </article>
         </section>
+        )}
 
         <footer>
           <span>PromptShield · Capstone prototype</span>
@@ -387,6 +423,52 @@ function App() {
       </section>
     </main>
   );
+}
+
+function App() {
+  const [loggedIn, setLoggedIn] = useState(() => getToken() !== null);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    setUser(null);
+    setLoggedIn(false);
+  }, []);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      return;
+    }
+
+    let cancelled = false;
+
+    getCurrentUser()
+      .then((profile) => {
+        if (cancelled) return;
+        if (profile === null) {
+          handleLogout();
+        } else {
+          setUser(profile);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) handleLogout();
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loggedIn, handleLogout]);
+
+  if (!loggedIn) {
+    return <Login onLoginSuccess={() => setLoggedIn(true)} />;
+  }
+
+  if (user === null) {
+    return <p style={{ padding: "2rem" }}>Loading...</p>;
+  }
+
+  return <Dashboard onLogout={handleLogout} user={user} />;
 }
 
 export default App;

@@ -1,19 +1,23 @@
 
 import logging
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from fastapi.middleware.cors import CORSMiddleware
 
+
+
 from app.analytics_service import get_security_summary
-from app.auth_dependencies import require_roles
-from app.auth_service import authenticate_user
+from app.auth_dependencies import get_current_user, require_roles
+from app.auth_service import authenticate_user, get_user_profile
 from app.config import settings
 from app.database import check_database_connection
 from app.events_service import get_recent_events
 from app.inspection_service import inspect_and_store
+from app.rate_limiter import login_limiter
 from app.schemas import (
+    CurrentUserResponse,
     InspectRequest,
     InspectResponse,
     LoginRequest,
@@ -92,8 +96,20 @@ def readiness_check():
     tags=["Authentication"],
 )
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    limiter_key = f"{client_ip}|{form_data.username.strip().lower()}"
+
+    wait_seconds = login_limiter.is_blocked(limiter_key)
+    if wait_seconds > 0:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again later.",
+            headers={"Retry-After": str(wait_seconds)},
+        )
+
     try:
         result = authenticate_user(
             email=form_data.username,
@@ -101,12 +117,14 @@ def login(
         )
 
         if result is None:
+            login_limiter.record_failure(limiter_key)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        login_limiter.reset(limiter_key)
         return result
 
     except HTTPException:
@@ -118,6 +136,34 @@ def login(
             status_code=503,
             detail="Authentication service temporarily unavailable",
         ) from None
+
+    
+@app.get(
+    "/api/v1/auth/me",
+    response_model=CurrentUserResponse,
+    tags=["Authentication"],
+)
+def read_current_user(
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        profile = get_user_profile(current_user["user_id"])
+
+    except Exception:
+        logger.exception("Failed to load user profile")
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service temporarily unavailable",
+        ) from None
+
+    if profile is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return profile
 
 
 # --------------------------------------------------

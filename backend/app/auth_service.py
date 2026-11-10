@@ -53,3 +53,35 @@ def authenticate_user(email: str, password: str):
     finally:
         if connection is not None:
             connection.close()
+
+def get_user_profile(user_id: int):
+    connection = None
+
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT user_id, email, role, is_active
+            FROM dbo.Users
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        )
+
+        user = cursor.fetchone()
+
+        # Deleted or deactivated users lose access immediately.
+        if user is None or not user.is_active:
+            return None
+
+        return {
+            "user_id": int(user.user_id),
+            "email": user.email,
+            "role": user.role,
+        }
+
+    finally:
+        if connection is not None:
+            connection.close()

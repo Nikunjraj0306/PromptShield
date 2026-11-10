@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.auth_dependencies import get_current_user
+from app.rate_limiter import login_limiter
 
 
 client = TestClient(app)
@@ -318,3 +319,67 @@ def test_analytics_summary_hides_internal_errors():
         "Analytics service temporarily unavailable"
     )
     assert "internal SQL details" not in response.text
+
+
+
+
+# CURRENT USER (/auth/me) TESTS
+
+def test_me_rejects_unauthenticated_request():
+    response = client.get("/api/v1/auth/me")
+    assert response.status_code == 401
+
+
+def test_me_returns_current_user_profile():
+    enable_viewer_access()
+
+    profile = {
+        "user_id": 2,
+        "email": "viewer@example.com",
+        "role": "Viewer",
+    }
+
+    with patch("app.main.get_user_profile", return_value=profile):
+        response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "Viewer"
+    assert response.json()["email"] == "viewer@example.com"
+
+
+def test_me_rejects_deactivated_user():
+    enable_viewer_access()
+
+    # The database lookup returns None for deleted or inactive users.
+    with patch("app.main.get_user_profile", return_value=None):
+        response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+
+
+# LOGIN RATE LIMITING TESTS
+
+def test_login_is_blocked_after_repeated_failures():
+    email = "bruteforce-test@example.com"
+    limiter_key = f"testclient|{email}"
+
+    try:
+        with patch("app.main.authenticate_user", return_value=None):
+            for _ in range(5):
+                response = client.post(
+                    "/api/v1/auth/login",
+                    data={"username": email, "password": "wrong-password"},
+                )
+                assert response.status_code == 401
+
+            blocked = client.post(
+                "/api/v1/auth/login",
+                data={"username": email, "password": "wrong-password"},
+            )
+
+        assert blocked.status_code == 429
+        assert "Retry-After" in blocked.headers
+
+    finally:
+        # Keep the test isolated from other tests.
+        login_limiter.reset(limiter_key)
