@@ -1,32 +1,148 @@
-# React + TypeScript + Vite
+# PromptShield — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+## 1. Overview
 
-Currently, two official plugins are available:
+The PromptShield frontend is a web-based dashboard developed using React and TypeScript.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+It provides the user interface for authentication, request inspection, analytics, security-event monitoring and application settings.
 
-## React Compiler
+The frontend communicates with the PromptShield FastAPI backend through REST API requests.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 2. Technologies Used
 
-## Expanding the Oxlint configuration
+- React
+- TypeScript
+- Vite
+- HTML and CSS
+- JavaScript
+- Fetch API for backend communication
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## 3. Main Features
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+### Login
+
+Allows registered users to authenticate using their email address and password.
+
+### Dashboard Overview
+
+Displays security analytics and an overview of recorded inspection activity.
+
+### Request Inspector
+
+Allows authorized users to submit request content for security inspection and view the resulting decision, risk score and findings.
+
+### Security Events
+
+Displays recorded inspection events and their associated security information.
+
+### Settings
+
+Provides access to the application's settings interface.
+
+### Role-Based Interface
+
+The navigation and available operations reflect the authenticated user's assigned role. Backend authorization remains responsible for enforcing access permissions.
+
+## 4. Project Structure
+
+```text
+frontend/
+|
+|-- public/
+|
+|-- src/
+|   |-- App.tsx
+|   |-- Login.tsx
+|   |-- api.ts
+|   |-- main.tsx
+|   |-- components/
+|   |-- assets/
+|
+|-- index.html
+|-- package.json
+|-- package-lock.json
+|-- vite.config.ts
+|-- tsconfig.json
+|-- .env.example
+|-- README.md
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The structure above describes the main frontend files and may be extended as additional components are added.
+
+## 5. Installation
+
+### Prerequisites
+
+- Node.js
+- npm
+- Access to the PromptShield backend API
+
+Navigate to the frontend directory:
+
+```bash
+cd frontend
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+## 6. Environment Configuration
+
+Create a local `.env` file using `.env.example` as a reference.
+
+Configure the backend base URL:
+
+```env
+VITE_API_URL=http://127.0.0.1:8000
+```
+
+For deployment, configure the corresponding deployed backend base URL.
+
+The Vite environment variable prefix `VITE_` means the value is exposed to frontend code. Never place passwords, JWT secrets or database credentials in frontend environment variables.
+
+## 7. Run Development Server
+
+Start the Vite development server:
+
+```bash
+npm run dev
+```
+
+The frontend is generally available at:
+
+```text
+http://localhost:5173
+```
+
+## 8. Production Build
+
+Create a production build:
+
+```bash
+npm run build
+```
+
+Vite generates the production output in the `dist/` directory.
+
+## 9. Backend Integration
+
+The frontend communicates with the FastAPI backend using the configured API base URL.
+
+The backend provides authentication, inspection, analytics and security-event endpoints.
+
+Authentication tokens are attached to protected API requests according to the frontend API implementation.
+
+## 10. Deployment
+
+The PromptShield frontend is deployed using Vercel.
+
+The deployed frontend communicates with the Render-hosted FastAPI backend through HTTPS.
+
+The backend must allow the deployed frontend origin through its CORS configuration.
+
+## 11. Conclusion
+
+The PromptShield frontend provides an interactive interface for application security inspection and monitoring. It integrates with the backend API to present authentication, risk evaluation and security-event information.

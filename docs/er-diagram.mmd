@@ -1,85 +1,110 @@
 
 erDiagram
-    USERS ||--o{ AUDIT_LOGS : performs
-    APPLICATIONS ||--o{ ENDPOINTS : exposes
-    APPLICATIONS ||--o{ SECURITY_EVENTS : generates
-    ENDPOINTS o|--o{ SECURITY_EVENTS : relates_to
-    SECURITY_POLICIES o|--o{ SECURITY_EVENTS : decides
-    SECURITY_EVENTS ||--o{ THREAT_FINDINGS : contains
-    DETECTION_RULES ||--o{ THREAT_FINDINGS : produces
+    Users ||--o{ Applications : creates
+    Users ||--o{ SecurityPolicies : creates
+    Users ||--o{ AuditLogs : performs
 
-    USERS {
-        int user_id PK
-        string email UK
-        string password_hash
-        string role
-        boolean is_active
-        datetime created_at
+    Applications ||--o{ Endpoints : contains
+    Applications ||--o{ SecurityEvents : records
+
+    Endpoints o|--o{ SecurityEvents : identifies
+    SecurityPolicies ||--o{ SecurityEvents : governs
+
+    SecurityEvents ||--o{ ThreatFindings : contains
+    DetectionRules o|--o{ ThreatFindings : identifies
+
+    Users {
+        BIGINT user_id PK
+        NVARCHAR email UK
+        NVARCHAR password_hash
+        VARCHAR role
+        BIT is_active
+        DATETIME2 created_at
+        DATETIME2 updated_at
     }
 
-    APPLICATIONS {
-        int application_id PK
-        string name
-        string description
-        boolean is_active
-        datetime created_at
+    Applications {
+        BIGINT application_id PK
+        NVARCHAR name
+        NVARCHAR description
+        BIT is_active
+        BIGINT created_by FK
+        DATETIME2 created_at
+        DATETIME2 updated_at
     }
 
-    ENDPOINTS {
-        int endpoint_id PK
-        int application_id FK
-        string path
-        string http_method
-        boolean is_active
+    Endpoints {
+        BIGINT endpoint_id PK
+        BIGINT application_id FK
+        NVARCHAR path_pattern
+        VARCHAR http_method
+        NVARCHAR description
+        BIT is_active
+        DATETIME2 created_at
     }
 
-    DETECTION_RULES {
-        int rule_id PK
-        string name
-        string category
-        string severity
-        boolean is_critical
-        boolean is_enabled
-        int weight
+    DetectionRules {
+        BIGINT rule_id PK
+        NVARCHAR name UK
+        VARCHAR category
+        NVARCHAR description
+        VARCHAR severity
+        INT weight
+        BIT is_critical
+        BIT is_enabled
+        DATETIME2 created_at
+        DATETIME2 updated_at
     }
 
-    SECURITY_POLICIES {
-        int policy_id PK
-        string name
-        int threshold
-        string action
-        int priority
-        boolean is_enabled
+    SecurityPolicies {
+        BIGINT policy_id PK
+        NVARCHAR name UK
+        NVARCHAR description
+        INT risk_threshold
+        BIT is_enabled
+        BIGINT created_by FK
+        DATETIME2 created_at
+        DATETIME2 updated_at
     }
 
-    SECURITY_EVENTS {
-        int event_id PK
-        int application_id FK
-        int endpoint_id FK
-        int policy_id FK
-        datetime request_time
-        datetime created_at
-        int risk_score
-        string decision
-        string reason_code
-        string correlation_id
+    SecurityEvents {
+        BIGINT event_id PK
+        BIGINT application_id FK
+        BIGINT endpoint_id FK
+        BIGINT policy_id FK
+        DATETIME2 request_time
+        DATETIME2 created_at
+        INT risk_score
+        VARCHAR decision
+        VARCHAR reason_code
+        UNIQUEIDENTIFIER correlation_id
+        VARCHAR http_method
+        NVARCHAR request_path
+        VARCHAR processing_status
     }
 
-    THREAT_FINDINGS {
-        int finding_id PK
-        int event_id FK
-        int rule_id FK
-        string severity
-        float confidence
-        string evidence_summary
+    ThreatFindings {
+        BIGINT finding_id PK
+        BIGINT event_id FK
+        BIGINT rule_id FK
+        NVARCHAR rule_name_snapshot
+        VARCHAR category_snapshot
+        VARCHAR severity_snapshot
+        INT weight_snapshot
+        BIT is_critical_snapshot
+        DECIMAL confidence
+        NVARCHAR evidence_summary
+        DATETIME2 created_at
     }
 
-    AUDIT_LOGS {
-        int audit_id PK
-        int user_id FK
-        string action
-        string resource_type
-        string resource_id
-        datetime created_at
-        string details_summary
+    AuditLogs {
+        BIGINT audit_id PK
+        BIGINT user_id FK
+        VARCHAR action
+        VARCHAR entity_type
+        NVARCHAR entity_id
+        VARCHAR outcome
+        UNIQUEIDENTIFIER correlation_id
+        DATETIME2 created_at
+        NVARCHAR details_summary
     }
